@@ -100,6 +100,8 @@ def run(data,
         plots=True,
         loggers=Loggers(),
         compute_loss=None,
+        cfg=None,
+        **kwargs
         ):
     # Initialize/load model and set device
     training = model is not None
@@ -155,6 +157,27 @@ def run(data,
     p, r, f1, mp, mr, map50, map, t0, t1, t2 = 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.
     loss = torch.zeros(3, device=device)
     jdict, stats, ap, ap_class = [], [], [], []
+
+    if cfg is not None and cfg.runtime:
+        print('Runtime test over random tensors')
+        warmup_iters, runtime_iters = 10, 100
+        # height = 288 if imgsz == 384 else imgsz
+        height = imgsz
+        shape = (batch_size, 3, height, imgsz)
+        for i in range(warmup_iters):
+            img = torch.rand(shape, device=device)
+            out, train_out = model(img, augment=augment)  # inference and training outputs
+
+        t1 = 0.0
+        for i in range(runtime_iters):
+            img = torch.rand(shape, device=device)
+            t = time_sync()
+            out, train_out = model(img, augment=augment)  # inference and training outputs
+            t1 += time_sync() - t
+        seen = runtime_iters * batch_size
+        t1 = t1 / seen * 1E3
+        print(f'Speed: %.1fms inference per image at shape {shape}' % t1)
+
     for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
         t_ = time_sync()
         img = img.to(device, non_blocking=True)
@@ -313,6 +336,7 @@ def parse_opt():
     parser.add_argument('--name', default='exp', help='save to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--half', action='store_true', help='use FP16 half-precision inference')
+    parser.add_argument('--runtime', action='store_true', help='Runtime')
     opt = parser.parse_args()
     opt.save_json |= opt.data.endswith('coco.yaml')
     opt.save_txt |= opt.save_hybrid
@@ -326,12 +350,12 @@ def main(opt):
     check_requirements(exclude=('tensorboard', 'thop'))
 
     if opt.task in ('train', 'val', 'test'):  # run normally
-        run(**vars(opt))
+        run(**vars(opt), cfg=opt)
 
     elif opt.task == 'speed':  # speed benchmarks
         for w in opt.weights if isinstance(opt.weights, list) else [opt.weights]:
             run(opt.data, weights=w, batch_size=opt.batch_size, imgsz=opt.imgsz, conf_thres=.25, iou_thres=.45,
-                save_json=False, plots=False)
+                save_json=False, plots=False, cfg=opt)
 
     elif opt.task == 'study':  # run over a range of settings and save/plot
         # python val.py --task study --data coco.yaml --iou 0.7 --weights yolov5s.pt yolov5m.pt yolov5l.pt yolov5x.pt
