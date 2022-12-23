@@ -1,0 +1,16 @@
+# Setup the shell envrionment as the codebase is not packaged appropriately.
+#
+# Usage:
+#   source activate.sh OR . activate.sh
+#
+# Notes:
+# This might update environment variables. If you see a funky behavior,
+# close the shell 🤭
+echo Available environments cbb24: mmpose-yolov5_saicc
+proj_conda_env=mmpose-yolov5_saicc
+
+if ! hash conda 2>/dev/null; then
+  echo Impossible to setup environment. Bye!
+  return
+fi
+conda activate $proj_conda_env

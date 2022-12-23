@@ -63,6 +63,31 @@ def detect(opt):
     # Run inference
     if device.type != 'cpu':
         model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
+
+    # Runtime
+    if opt.runtime:
+        print('Grabing runtime')
+        warmup_iters, run_iters = 10, 100
+        batch_size = 32
+        shape = (batch_size, 3, imgsz, imgsz)
+
+        for _ in range(warmup_iters):
+            img = torch.rand(shape, device=device)
+            img = img.half() if half else img.float()  # uint8 to fp16/32
+            pred = model(img, augment=opt.augment)[0]
+
+        t = 0.
+        for _ in range(run_iters):
+            img = torch.rand(shape, device=device)
+            img = img.half() if half else img.float()  # uint8 to fp16/32
+            t1 = time_synchronized()
+            pred = model(img, augment=opt.augment)[0]
+            t2 = time_synchronized()
+            t += t2 -t1
+        t = t / (batch_size * run_iters) * 1E3
+        print(f'Model weights: {" + ".join(opt.weights)}')
+        print(f'Speed: {t:.3f} ms inference per image with shape {shape}')
+
     t0 = time.time()
     for path, img, im0s, vid_cap in dataset:
         img = torch.from_numpy(img).to(device)
@@ -189,6 +214,7 @@ if __name__ == '__main__':
     parser.add_argument('--hide-labels', default=False, action='store_true', help='hide labels')
     parser.add_argument('--hide-conf', default=False, action='store_true', help='hide confidences')
     parser.add_argument('--kpt-label', action='store_true', help='use keypoint labels')
+    parser.add_argument('--runtime', action='store_true', help='Estimate runtime')
     opt = parser.parse_args()
     print(opt)
     check_requirements(exclude=('tensorboard', 'pycocotools', 'thop'))
