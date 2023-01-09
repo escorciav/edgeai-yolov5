@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import math
 import sys
 from copy import deepcopy
 from pathlib import Path
@@ -15,7 +16,9 @@ import torch.nn as nn
 # NOTE: COMMENT. Cleaning the mess of someone else. EOM - Victor
 # from models.common import *
 # from models.experimental import *
-from models.common import Conv
+from models.common import Bottleneck, BottleneckCSP, C3, C3TR, Concat, Contract
+from models.common import Conv, ConvFocus, DWConv, Expand, Focus, SPP
+from models.experimental import CrossConv, GhostConv, GhostBottleneck, MixConv2d
 from utils.autoanchor import check_anchor_order
 from utils.general import make_divisible, check_file, set_logging
 from utils.torch_utils import time_synchronized, fuse_conv_and_bn, model_info, scale_img, initialize_weights, \
