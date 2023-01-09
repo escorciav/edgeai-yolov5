@@ -270,6 +270,8 @@ class Model(nn.Module):
         return m
 
     def info(self, verbose=False, img_size=640):  # print model information
+        # img_size = 256
+        # img_size = [384, 288]
         model_info(self, verbose, img_size)
 
 
