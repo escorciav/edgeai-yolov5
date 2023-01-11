@@ -355,7 +355,7 @@ def train(hyp, opt, device, tb_writer=None):
             if not opt.notest or final_epoch:  # Calculate mAP
                 wandb_logger.current_epoch = epoch + 1
                 results, maps, times = test.test(data_dict,
-                                                 batch_size=batch_size * 2,
+                                                 batch_size=batch_size * opt.batch_size_test_gain,
                                                  imgsz=imgsz_test,
                                                  model=ema.ema,
                                                  single_cls=opt.single_cls,
@@ -466,6 +466,8 @@ if __name__ == '__main__':
     parser.add_argument('--hyp', type=str, default='data/hyp.scratch.yaml', help='hyperparameters path')
     parser.add_argument('--epochs', type=int, default=300)
     parser.add_argument('--batch-size', type=int, default=16, help='total batch size for all GPUs')
+    HELP_BATCH_SIZE_TEST_GAIN = 'Effective batch size during testing is batch-size * gain'
+    parser.add_argument('--batch-size-test-gain', type=int, default=2, help=HELP_BATCH_SIZE_TEST_GAIN)
     parser.add_argument('--img-size', nargs='+', type=int, default=[640, 640], help='[train, test] image sizes')
     parser.add_argument('--rect', action='store_true', help='rectangular training')
     parser.add_argument('--resume', nargs='?', const=True, default=False, help='resume most recent training')
