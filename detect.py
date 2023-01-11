@@ -24,8 +24,9 @@ def detect(opt):
         ('rtsp://', 'rtmp://', 'http://', 'https://'))
 
     # Directories
-    save_dir = increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok)  # increment run
-    (save_dir / 'labels' if (save_txt or save_txt_tidl) else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
+    if opt.expired_time <= 0:
+        save_dir = increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok)  # increment run
+        (save_dir / 'labels' if (save_txt or save_txt_tidl) else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
 
     # Initialize
     set_logging()
@@ -33,7 +34,16 @@ def detect(opt):
     half = device.type != 'cpu' and not save_txt_tidl  # half precision only supported on CUDA
 
     # Load model
-    model = attempt_load(weights, map_location=device)  # load FP32 model
+    model, ckpt = attempt_load(weights, map_location=device, return_ckpt=True)  # load FP32 model
+    if ckpt is None:
+        raise ValueError('Unsupported case. Patch is needed 😜')
+    if opt.expired_time > 0:
+        save_dir = Path(opt.project) / opt.name / f'detect_epoch-{ckpt["epoch"]}'
+        if save_dir.exists() and len(list(save_dir.glob('*'))) > 0:
+            print('Checkpoint already processed. Skipping inferece 😊')
+            return
+        save_dir.mkdir(parents=True, exist_ok=True)
+        (save_dir / 'labels' if (save_txt or save_txt_tidl) else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
     stride = int(model.stride.max())  # model stride
     if isinstance(imgsz, (list,tuple)):
         assert len(imgsz) ==2; "height and width of image has to be specified"
@@ -215,14 +225,45 @@ if __name__ == '__main__':
     parser.add_argument('--hide-conf', default=False, action='store_true', help='hide confidences')
     parser.add_argument('--kpt-label', action='store_true', help='use keypoint labels')
     parser.add_argument('--runtime', action='store_true', help='Estimate runtime')
+    HELP_IDLE = 'Idle time used to poll for new "weights" (dirname)'
+    parser.add_argument('--idle-time', default=0, type=float, help=HELP_IDLE)
+    HELP_EXPIRATION = 'Determine for how long to poll "weights" (dirname)'
+    parser.add_argument('--expired-time', default=0, type=float, help=HELP_EXPIRATION)
     opt = parser.parse_args()
     print(opt)
     check_requirements(exclude=('tensorboard', 'pycocotools', 'thop'))
 
     with torch.no_grad():
         if opt.update:  # update all models (to fix SourceChangeWarning)
+            if opt.expired_time > 0:
+                raise ValueError('Out of the scope. Implement it ☺️')
+
             for opt.weights in ['yolov5s.pt', 'yolov5m.pt', 'yolov5l.pt', 'yolov5x.pt']:
                 detect(opt=opt)
                 strip_optimizer(opt.weights)
         else:
-            detect(opt=opt)
+            print(
+                f'The script will run for {opt.expired_time=} plus the usual '
+                f'detect.py typical elapsed time (seconds)')
+            tic = time.time()
+            while True:
+                if opt.expired_time:
+                    # Grab dirname of pth weights
+                    pth_dir = Path(opt.weights[0])
+                    if pth_dir.is_file():
+                        pth_dir  = pth_dir.parent
+                    opt.weights = pth_dir / 'last.pt'
+                    opt.weights_dir = pth_dir
+                    # sanitization
+                    opt.weights = [str(opt.weights)]
+
+                detect(opt=opt)
+
+                et = time.time() - tic  # Elapsed time 😜
+                if et > opt.expired_time:
+                    print(f'Finishing as expired time reached.')
+                    break
+                while opt.idle_time > 0:
+                    print(f'Waiting for {opt.idle_time=} (seconds), 🤖🎽☕')
+                    time.sleep(opt.idle_time)
+                    break
