@@ -38,15 +38,16 @@ def test(data,
          save_hybrid=False,  # for hybrid auto-labelling
          save_conf=False,  # save auto-label confidences
          plots=True,
-         wandb_logger=None,		 
+         wandb_logger=None,
 		 compute_loss=None,
          half_precision=True,
          is_coco=False,
-         opt=None,		 		 
+         opt=None,
          tidl_load=False,
          dump_img=False,
          kpt_label=False,
-         flip_test=False):
+         flip_test=False,
+         epoch_suffix=False):
     # Initialize/load model and set device
     training = model is not None
     if training:  # called by train.py
@@ -56,14 +57,17 @@ def test(data,
         set_logging()
         device = select_device(opt.device, batch_size=batch_size)
 
-        # Directories
-        save_dir = increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok)  # increment run
-        (save_dir / 'labels' if save_txt or save_txt_tidl else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
-
         # Load model
-        model = attempt_load(weights, map_location=device)  # load FP32 model
+        model, ckpt = attempt_load(weights, map_location=device, return_ckpt=True)  # load FP32 model
         gs = max(int(model.stride.max()), 32)  # grid size (max stride)
         imgsz = check_img_size(imgsz, s=gs)  # check img_size
+
+        # Directories
+        if epoch_suffix:
+            save_dir = Path(opt.project) / (opt.name + f'_epoch-{ckpt["epoch"]}')
+        else:
+            save_dir = increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok)  # increment run
+        (save_dir / 'labels' if save_txt or save_txt_tidl else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
 
         # Multi-GPU disabled, incompatible with .half() https://github.com/ultralytics/yolov5/issues/99
         # if device.type != 'cpu' and torch.cuda.device_count() > 1:
@@ -386,6 +390,7 @@ if __name__ == '__main__':
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--kpt-label', action='store_true', help='Whether kpt-label is enabled or not')
     parser.add_argument('--flip-test', action='store_true', help='Whether to run flip_test or not')
+    parser.add_argument('--epoch-suffix', action='store_true', help='Append "_epoch-X" to "name", X grabbed from weights')
     opt = parser.parse_args()
     opt.save_json |= opt.data.endswith('coco.yaml')
     opt.save_json_kpt |= opt.data.endswith('coco_kpts.yaml')
@@ -408,12 +413,13 @@ if __name__ == '__main__':
              save_txt=opt.save_txt | opt.save_hybrid,
              save_txt_tidl=opt.save_txt_tidl,
              save_hybrid=opt.save_hybrid,
-             save_conf=opt.save_conf, 
+             save_conf=opt.save_conf,
 			 opt=opt,
              tidl_load = opt.tidl_load,
              dump_img = opt.dump_img,
              kpt_label = opt.kpt_label,
              flip_test = opt.flip_test,
+             epoch_suffix=opt.epoch_suffix
              )
 
     elif opt.task == 'speed':  # speed benchmarks
