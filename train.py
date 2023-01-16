@@ -196,7 +196,7 @@ def train(hyp, opt, device, tb_writer=None):
 
     # Process 0
     if rank in [-1, 0]:
-        testloader = create_dataloader(test_path, imgsz_test, batch_size * 2, gs, opt,  # testloader
+        testloader = create_dataloader(test_path, imgsz_test, int(batch_size * opt.batch_size_test_gain), gs, opt,  # testloader
                                        hyp=hyp, cache=opt.cache_images and not opt.notest, rect=True, rank=-1,
                                        world_size=opt.world_size, workers=opt.workers,
                                        pad=0.5, prefix=colorstr('val: '), kpt_label=kpt_label)[0]
@@ -355,7 +355,7 @@ def train(hyp, opt, device, tb_writer=None):
             if not opt.notest or final_epoch:  # Calculate mAP
                 wandb_logger.current_epoch = epoch + 1
                 results, maps, times = test.test(data_dict,
-                                                 batch_size=batch_size * opt.batch_size_test_gain,
+                                                 batch_size=int(batch_size * opt.batch_size_test_gain),
                                                  imgsz=imgsz_test,
                                                  model=ema.ema,
                                                  single_cls=opt.single_cls,
@@ -379,7 +379,16 @@ def train(hyp, opt, device, tb_writer=None):
                     'metrics/precision', 'metrics/recall', 'metrics/mAP_0.5', 'metrics/mAP_0.5:0.95',
                     'val/box_loss', 'val/obj_loss', 'val/cls_loss',  # val loss
                     'x/lr0', 'x/lr1', 'x/lr2']  # params
-            for x, tag in zip(list(mloss[:-1]) + list(results) + lr, tags):
+            to_log = list(mloss[:-1]) + list(results) + lr
+            if len(to_log) != tags:
+                tags = [
+                    'train/box_loss', 'train/obj_loss', 'train/cls_loss',  # train loss
+                    'train/kpt_loss', 'train/kptv_loss',  # train loss
+                    'metrics/precision', 'metrics/recall', 'metrics/mAP_0.5', 'metrics/mAP_0.5:0.95',
+                    'val/box_loss', 'val/obj_loss', 'val/cls_loss',  # results
+                    'x/lr0', 'x/lr1', 'x/lr2'  # lr
+                ]
+            for x, tag in zip(to_log, tags):
                 if tb_writer:
                     tb_writer.add_scalar(tag, x, epoch)  # tensorboard
                 if wandb_logger.wandb:
@@ -467,7 +476,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=300)
     parser.add_argument('--batch-size', type=int, default=16, help='total batch size for all GPUs')
     HELP_BATCH_SIZE_TEST_GAIN = 'Effective batch size during testing is batch-size * gain'
-    parser.add_argument('--batch-size-test-gain', type=int, default=2, help=HELP_BATCH_SIZE_TEST_GAIN)
+    parser.add_argument('--batch-size-test-gain', type=float, default=2, help=HELP_BATCH_SIZE_TEST_GAIN)
     parser.add_argument('--img-size', nargs='+', type=int, default=[640, 640], help='[train, test] image sizes')
     parser.add_argument('--rect', action='store_true', help='rectangular training')
     parser.add_argument('--resume', nargs='?', const=True, default=False, help='resume most recent training')
