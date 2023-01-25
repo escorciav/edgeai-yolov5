@@ -130,6 +130,10 @@ def detect(opt):
             txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # img.txt
             s += '%gx%g ' % img.shape[2:]  # print string
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
+            if opt.save_raw and dataset.mode == 'image':
+                assert len(pred) == 1
+                pt_path = str(save_dir / (p.stem + '.pt'))
+                torch.save({'pred': det.cpu(), 'opt': opt}, pt_path)
             if len(det):
                 # Rescale boxes from img_size to im0 size
                 scale_coords(img.shape[2:], det[:, :4], im0.shape, kpt_label=False)
@@ -229,6 +233,7 @@ if __name__ == '__main__':
     parser.add_argument('--idle-time', default=0, type=float, help=HELP_IDLE)
     HELP_EXPIRATION = 'Determine for how long to poll "weights" (dirname)'
     parser.add_argument('--expired-time', default=0, type=float, help=HELP_EXPIRATION)
+    parser.add_argument('--save-raw', action='store_true', help='save raw predictions')
     opt = parser.parse_args()
     print(opt)
     check_requirements(exclude=('tensorboard', 'pycocotools', 'thop'))
