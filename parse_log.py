@@ -1,4 +1,24 @@
-"Parse and clean up log text-files from test.py"
+"""Parse and clean up log text-files from test.py
+
+Usage: python parse_log.py
+
+Hangover/Alzheimer pills 💊
+
+Victor usually launches the validation along with training, with something
+along these lines:
+
+```bash
+sleep 3780
+for i in {1..19}; do
+    echo $(date)
+    python test.py --data coco_kpts.yaml --epoch-suffix --img 640 --kpt-label \
+    --conf 0.001 --iou 0.65 --weights runs/train/exp/weights/last.pt | tee \
+    log_$(date +"%y-%m-%d-%H:%M:%S")".txt";
+    echo iter: $i, $(date);
+    sleep 6300;
+done
+```
+"""
 import shutil
 import pickle
 import argparse
