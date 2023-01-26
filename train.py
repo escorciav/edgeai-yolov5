@@ -187,7 +187,7 @@ def train(hyp, opt, device, tb_writer=None):
 
     # Trainloader
     dataloader, dataset = create_dataloader(train_path, imgsz, batch_size, gs, opt,
-                                            hyp=hyp, augment=True, cache=opt.cache_images, rect=opt.rect, rank=rank,
+                                            hyp=hyp, augment=opt.augment, cache=opt.cache_images, rect=opt.rect, rank=rank,
                                             world_size=opt.world_size, workers=opt.workers,
                                             image_weights=opt.image_weights, quad=opt.quad, prefix=colorstr('train: '), kpt_label=kpt_label)
     mlc = np.concatenate(dataset.labels, 0)[:, 0].max()  # max label class
@@ -506,6 +506,9 @@ if __name__ == '__main__':
     parser.add_argument('--save_period', type=int, default=-1, help='Log model after every "save_period" epoch')
     parser.add_argument('--artifact_alias', type=str, default="latest", help='version of dataset artifact to be used')
     parser.add_argument('--kpt-label', action='store_true', help='use keypoint labels for training')
+    parser.add_argument('--augment', action='store_true', help='Enable data augmentation during training')
+    parser.add_argument('--no-augment', action='store_false', help='Enable data augmentation during training', dest='augment')
+    parser.set_defaults(augment=True)
     opt = parser.parse_args()
 
     # Set DDP variables
