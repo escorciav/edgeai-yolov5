@@ -1,6 +1,10 @@
-"""Parse and clean up log text-files from test.py
+"""Clean up log text-files from test.py, OR monitoring
 
-Usage: python parse_log.py
+Usage:
+
+  1. [cleaning up] python parse_log.py
+
+  2. [monitoring] python parse_log.py --task progress
 
 Hangover/Alzheimer pills 💊
 
@@ -26,8 +30,13 @@ from argparse import Namespace
 from pathlib import Path
 
 import yaml
+import matplotlib.pyplot as plt
 
+TASKS = ['monitor', 'cleanup']
 REQUIRED_KEYS = ['epoch', 'mAP IoU=0.50:0.95', 'mAP IoU=0.50']
+EXTRA_INFO = 'boxes = All'
+COLORS = ['#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4']
+LINE_WIDTH, MARKER_SIZE = 3, 5
 
 
 def parse_log(filename):
@@ -89,7 +98,7 @@ def parse_log(filename):
     return data
 
 
-def main(args):
+def clean_up(args):
     if args.dirname is not None:
         log_files = list(Path(args.dirname).glob('log*.txt'))
     else:
@@ -117,16 +126,51 @@ def main(args):
                 pickle.dump(data, fid)
 
 
+def monitor(args):
+    "Grab all the pkl and plot the performance along the course of the training"
+    pkl_files = list(args.dirname.glob(f'{args.wildcard}.pkl'))
+    if len(pkl_files) == 0:
+        print('No pickle files associated with results found\nEARLY EXIT!')
+
+    results = []
+    for filename in pkl_files:
+        with open(filename, 'rb') as fid:
+            data = pickle.load(fid)
+        results.append(data)
+    results = sorted(results, key=lambda x: x['epoch'])
+    # plot the values hold by key "mAP IoU=0.50:0.95" in red and "mAP IoU=0.50" in blue in the y-axis and "epoch" in the x-axis
+    data = [
+        (i['epoch'], i['mAP IoU=0.50:0.95'], i['mAP IoU=0.50'])
+        for i in results
+    ]
+    epoch, *kpis = zip(*data)
+    for i, kpi_i in enumerate(kpis):
+        plt.plot(
+            epoch, kpis[i], color=COLORS[i], label=REQUIRED_KEYS[i + 1],
+            linewidth=LINE_WIDTH, marker='o', markersize=MARKER_SIZE)
+    plt.ylabel('mAP / AP')
+    # plt.xticks(epoch)
+    plt.xlim([0, max(epoch) + 1])
+    plt.xlabel('Epoch')
+    plt.grid(True)
+    plt.title(f'{args.dirname.stem}, {EXTRA_INFO}')
+    plt.legend(loc='best')
+    plt.savefig(args.dirname / 'test_results.jpg', bbox_inches='tight')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--filename', type=str)
-    parser.add_argument('--dirname', type=str, default='.')
+    parser.add_argument('--task', choices=TASKS, default='cleanup')
+    parser.add_argument('--filename', type=Path)
+    parser.add_argument('--dirname', type=Path, default='.')
     parser.add_argument('--move', action='store_true', dest='move')
     parser.add_argument('--no-move', action='store_false', dest='move')
     parser.set_defaults(move=True)
     parser.add_argument('--dump-pkl', action='store_true', dest='dump_pickle')
     parser.add_argument('--no-dump-pkl', action='store_false', dest='dump_pickle')
     parser.set_defaults(dump_pickle=True)
+    parser.add_argument('--wildcard', default='test_epoch*',
+        help='wildcard to find pkl files with results')
     args = parser.parse_args()
     # TODO: IMPROVE. There is a cleaner version of removing the if clause with
     # argparse. But, GithubCopilot suggested the old dirty hack. EOM - Victor.
@@ -135,4 +179,7 @@ if __name__ == '__main__':
             f'You must specify either {args.filename=} or {args.dirname=}')
     assert args.move and args.dump_pickle
 
-    main(args)
+    if args.task == 'cleanup':
+        clean_up(args)
+    elif args.task == 'monitor':
+        monitor(args)
