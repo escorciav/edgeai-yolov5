@@ -138,7 +138,6 @@ def monitor(args):
             data = pickle.load(fid)
         results.append(data)
     results = sorted(results, key=lambda x: x['epoch'])
-    # plot the values hold by key "mAP IoU=0.50:0.95" in red and "mAP IoU=0.50" in blue in the y-axis and "epoch" in the x-axis
     data = [
         (i['epoch'], i['mAP IoU=0.50:0.95'], i['mAP IoU=0.50'])
         for i in results
