@@ -2,9 +2,9 @@
 
 Usage:
 
-  1. [cleaning up] python parse_log.py
+  1. [cleaning up] python monitor_test.py
 
-  2. [monitoring] python parse_log.py --task progress
+  2. [monitoring] python monitor_test.py --task monitor --dirname runs/exp4
 
 Hangover/Alzheimer pills 💊
 
